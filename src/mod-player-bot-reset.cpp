@@ -14,6 +14,7 @@
 #include "Item.h"
 #include "RandomPlayerbotMgr.h"
 #include "ObjectAccessor.h"
+#include "PlayerbotFactory.h"
 
 // -----------------------------------------------------------------------------
 // GLOBALS: Configuration Values
@@ -135,14 +136,14 @@ class ResetBotLevelPlayerScript : public PlayerScript
 public:
     ResetBotLevelPlayerScript() : PlayerScript("ResetBotLevelPlayerScript") { }
 
-    void OnLogin(Player* player) override
+    void OnPlayerLogin(Player* player) override
     {
         if (!player)
             return;
         ChatHandler(player->GetSession()).SendSysMessage("The [mod-player-bot-reset] module is active on this server.");
     }
 
-    void OnLevelChanged(Player* player, uint8 /*oldLevel*/) override
+    void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
     {
         if (!player)
         {
