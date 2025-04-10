@@ -26,7 +26,7 @@ static uint8 g_SkipToLevel           = 1;
 static uint8 g_ResetBotChancePercent = 100;
 static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
-static std::map<ObjectGuid, uint32> g_BotLoginTimers;      // Maps player GUID to elapsed time since login
+static std::map<ObjectGuid, uint32> g_BotLoginTimers;  // Maps player GUID to elapsed time since login
 static const uint32 BOT_LOGIN_CHECK_DELAY = 60 * 1000; // in milliseconds  (1 minute delay)
 
 // When true, bots at or above g_ResetBotMaxLevel are reset only after they have
