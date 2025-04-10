@@ -26,7 +26,7 @@ static uint8 g_SkipToLevel           = 1;
 static uint8 g_ResetBotChancePercent = 100;
 static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
-static std::map<uint64, uint32> g_BotLoginTimers;      // Maps player GUID to elapsed time since login
+static std::map<ObjectGuid, uint32> g_BotLoginTimers;      // Maps player GUID to elapsed time since login
 static const uint32 BOT_LOGIN_CHECK_DELAY = 60 * 1000; // in milliseconds  (1 minute delay)
 
 // When true, bots at or above g_ResetBotMaxLevel are reset only after they have
@@ -384,8 +384,8 @@ private:
 
     void ProcessBotLoginTimers(uint32 diff)
     {
-        std::vector<uint64> botsToCheck;
-        std::vector<uint64> botsToRemove;
+        std::vector<ObjectGuid> botsToCheck;
+        std::vector<ObjectGuid> botsToRemove;
         
         // First, update all timers and identify which bots need checking
         for (auto& pair : g_BotLoginTimers)
@@ -400,7 +400,7 @@ private:
         }
         
         // Now check the bots that have reached the delay time
-        for (uint64 guid : botsToCheck)
+        for (ObjectGuid guid : botsToCheck)
         {
             Player* player = ObjectAccessor::FindPlayer(guid);
             if (!player || !player->IsInWorld())
@@ -443,7 +443,7 @@ private:
         }
         
         // Remove processed bots from the tracking map
-        for (uint64 guid : botsToRemove)
+        for (ObjectGuid guid : botsToRemove)
         {
             g_BotLoginTimers.erase(guid);
         }
