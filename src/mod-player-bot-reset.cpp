@@ -26,13 +26,14 @@ static uint8 g_SkipToLevel           = 1;
 static uint8 g_ResetBotChancePercent = 100;
 static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
-static const uint32 PERIODIC_CHECK_INTERVAL = 15 * 60 * 1000; // in milliseconds (15 minutes)
+static std::map<uint64, uint32> g_BotLoginTimers;      // Maps player GUID to elapsed time since login
+static const uint32 BOT_LOGIN_CHECK_DELAY = 60 * 1000; // in milliseconds  (1 minute delay)
 
 // When true, bots at or above g_ResetBotMaxLevel are reset only after they have
 // accumulated at least g_MinTimePlayed seconds at that level.
 static bool  g_RestrictResetByPlayedTime = false;
 static uint32 g_MinTimePlayed             = 86400; // in seconds (1 Day)
-static uint32 g_PlayedTimeCheckFrequency  = 300;    // in seconds (default check frequency)
+static uint32 g_PlayedTimeCheckFrequency  = 300;   // in seconds (default check frequency)
 
 // -----------------------------------------------------------------------------
 // LOAD CONFIGURATION USING sConfigMgr
@@ -192,7 +193,29 @@ public:
     {
         if (!player)
             return;
+        
         ChatHandler(player->GetSession()).SendSysMessage("The [mod-player-bot-reset] module is active on this server.");
+        
+        // If this is a bot, add it to our tracking map with timer set to 0
+        if (IsPlayerBot(player) && IsPlayerRandomBot(player))
+        {
+            g_BotLoginTimers[player->GetGUID()] = 0;
+            
+            if (g_DebugMode)
+            {
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' added to login checks.", 
+                         player->GetName());
+            }
+        }
+    }
+
+    void OnPlayerLogout(Player* player) override
+    {
+        if (!player)
+            return;
+            
+        // Remove from tracking when a player logs out
+        g_BotLoginTimers.erase(player->GetGUID());
     }
 
     void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
@@ -294,28 +317,12 @@ class ResetBotLevelTimeCheckWorldScript : public WorldScript
 {
     public:
     ResetBotLevelTimeCheckWorldScript() : WorldScript("ResetBotLevelTimeCheckWorldScript"), 
-        m_timer(0), m_periodicCheckTimer(0) { }
+        m_timer(0) { }
 
     void OnUpdate(uint32 diff) override
     {
-        // Periodic check for all bots
-        m_periodicCheckTimer += diff;
-        if (m_periodicCheckTimer >= PERIODIC_CHECK_INTERVAL)
-        {
-            m_periodicCheckTimer = 0;
-            
-            if (g_DebugMode)
-            {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Starting periodic check of bots...");
-            }
-            
-            ProcessExistingBots();
-            
-            if (g_DebugMode)
-            {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Completed periodic check of bots.");
-            }
-        }
+        // Process login timers for bots
+        ProcessBotLoginTimers(diff);
 
         // Skip if time restrictions are disabled or MaxLevel is disabled
         if (!g_RestrictResetByPlayedTime || g_ResetBotMaxLevel == 0)
@@ -374,35 +381,42 @@ class ResetBotLevelTimeCheckWorldScript : public WorldScript
 
 private:
     uint32 m_timer;
-    uint32 m_periodicCheckTimer;
 
-    void ProcessExistingBots()
+    void ProcessBotLoginTimers(uint32 diff)
     {
-        if (g_DebugMode)
+        std::vector<uint64> botsToCheck;
+        std::vector<uint64> botsToRemove;
+        
+        // First, update all timers and identify which bots need checking
+        for (auto& pair : g_BotLoginTimers)
         {
-            LOG_INFO("server.loading", "[mod-player-bot-reset] Starting check of existing bots for level limits...");
+            pair.second += diff;
+            
+            if (pair.second >= BOT_LOGIN_CHECK_DELAY)
+            {
+                botsToCheck.push_back(pair.first);
+                botsToRemove.push_back(pair.first); // Will remove from tracking after check
+            }
         }
-
-        auto const& allPlayers = ObjectAccessor::GetPlayers();
-        for (auto const& itr : allPlayers)
+        
+        // Now check the bots that have reached the delay time
+        for (uint64 guid : botsToCheck)
         {
-            Player* candidate = itr.second;
-            if (!candidate || !candidate->IsInWorld())
+            Player* player = ObjectAccessor::FindPlayer(guid);
+            if (!player || !player->IsInWorld())
                 continue;
-            if (!IsPlayerBot(candidate) || !IsPlayerRandomBot(candidate))
-                continue;
-
-            uint8 currentLevel = candidate->GetLevel();
+                
+            uint8 currentLevel = player->GetLevel();
             
             // Check for SkipFromLevel condition
             if (g_SkipFromLevel > 0 && currentLevel == g_SkipFromLevel)
             {
                 if (g_DebugMode)
                 {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Bot '{}' at level {} matches SkipFromLevel. Applying skip.",
-                             candidate->GetName(), currentLevel);
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessBotLoginTimers: Bot '{}' at level {} matches SkipFromLevel. Applying skip.",
+                             player->GetName(), currentLevel);
                 }
-                SkipBotLevel(candidate, currentLevel);
+                SkipBotLevel(player, currentLevel);
                 continue;
             }
             
@@ -411,8 +425,8 @@ private:
             {
                 if (g_DebugMode)
                 {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Bot '{}' at level {} is at or above MaxLevel {}.",
-                             candidate->GetName(), currentLevel, g_ResetBotMaxLevel);
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessBotLoginTimers: Bot '{}' at level {} is at or above MaxLevel {}.",
+                             player->GetName(), currentLevel, g_ResetBotMaxLevel);
                 }
                 
                 uint8 resetChance = ComputeResetChance(currentLevel);
@@ -420,12 +434,18 @@ private:
                 {
                     if (g_DebugMode)
                     {
-                        LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Reset chance check passed for bot '{}'. Resetting bot.", 
-                                 candidate->GetName());
+                        LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessBotLoginTimers: Reset chance check passed for bot '{}'. Resetting bot.", 
+                                 player->GetName());
                     }
-                    ResetBot(candidate, currentLevel);
+                    ResetBot(player, currentLevel);
                 }
             }
+        }
+        
+        // Remove processed bots from the tracking map
+        for (uint64 guid : botsToRemove)
+        {
+            g_BotLoginTimers.erase(guid);
         }
     }
 };
