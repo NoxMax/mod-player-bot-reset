@@ -26,14 +26,13 @@ static uint8 g_SkipToLevel           = 1;
 static uint8 g_ResetBotChancePercent = 100;
 static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
-static bool m_startupCheckDone       = false;
-static const uint32 STARTUP_CHECK_DELAY = 60 * 1000; // in milliseconds (60 seconds)
+static const uint32 PERIODIC_CHECK_INTERVAL = 15 * 60 * 1000; // in milliseconds (15 minutes)
 
 // When true, bots at or above g_ResetBotMaxLevel are reset only after they have
 // accumulated at least g_MinTimePlayed seconds at that level.
-static bool  g_RestrictResetByPlayedTime = false;
-static uint32 g_MinTimePlayed             = 86400; // in seconds (1 Day)
-static uint32 g_PlayedTimeCheckFrequency  = 300;    // in seconds (default check frequency)
+static bool  g_RestrictResetByPlayedTime  = false;
+static uint32 g_MinTimePlayed             = 86400;  // in seconds (1 Day)
+static uint32 g_PlayedTimeCheckFrequency  = 864;    // in seconds (default check frequency)
 
 // -----------------------------------------------------------------------------
 // LOAD CONFIGURATION USING sConfigMgr
@@ -80,7 +79,7 @@ static void LoadPlayerBotResetConfig()
 
     g_RestrictResetByPlayedTime = sConfigMgr->GetOption<bool>("ResetBotLevel.RestrictTimePlayed", false);
     g_MinTimePlayed             = sConfigMgr->GetOption<uint32>("ResetBotLevel.MinTimePlayed", 86400);
-    g_PlayedTimeCheckFrequency  = sConfigMgr->GetOption<uint32>("ResetBotLevel.PlayedTimeCheckFrequency", 60);
+    g_PlayedTimeCheckFrequency  = sConfigMgr->GetOption<uint32>("ResetBotLevel.PlayedTimeCheckFrequency", 864);
 }
 
 // -----------------------------------------------------------------------------
@@ -289,23 +288,32 @@ public:
 // For each bot at or above g_ResetBotMaxLevel that has accumulated at least g_MinTimePlayed
 // seconds at the current level, it applies the same reset chance logic and resets the bot if the check passes.
 // -----------------------------------------------------------------------------
+
+
 class ResetBotLevelTimeCheckWorldScript : public WorldScript
 {
-public:
+    public:
     ResetBotLevelTimeCheckWorldScript() : WorldScript("ResetBotLevelTimeCheckWorldScript"), 
-        m_timer(0), m_startupCheckTimer(0) { }
+        m_timer(0), m_periodicCheckTimer(0) { }
 
     void OnUpdate(uint32 diff) override
     {
-        // One-time startup check for existing bots
-        if (!m_startupCheckDone)
+        // Periodic check for all bots
+        m_periodicCheckTimer += diff;
+        if (m_periodicCheckTimer >= PERIODIC_CHECK_INTERVAL)
         {
-            m_startupCheckTimer += diff;
-            if (m_startupCheckTimer >= STARTUP_CHECK_DELAY)
+            m_periodicCheckTimer = 0;
+            
+            if (g_DebugMode)
             {
-                ProcessExistingBots();
-                m_startupCheckDone = true;
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Completed startup check of existing bots.");
+                LOG_INFO("server.loading", "[mod-player-bot-reset] Starting periodic check of bots...");
+            }
+            
+            ProcessExistingBots();
+            
+            if (g_DebugMode)
+            {
+                LOG_INFO("server.loading", "[mod-player-bot-reset] Completed periodic check of bots.");
             }
         }
 
@@ -366,7 +374,7 @@ public:
 
 private:
     uint32 m_timer;
-    uint32 m_startupCheckTimer;
+    uint32 m_periodicCheckTimer;
 
     void ProcessExistingBots()
     {

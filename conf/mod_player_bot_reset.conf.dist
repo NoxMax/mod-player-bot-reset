@@ -61,8 +61,9 @@ ResetBotLevel.MinTimePlayed = 86400
 #    ResetBotLevel.PlayedTimeCheckFrequency
 #        Description: If enabled (ResetBotLevel.RestrictTimePlayed) The frequency (in seconds) at which the time played check is
 #                     performed for bots at or above the maximum level.
-#        Default:     300
-ResetBotLevel.PlayedTimeCheckFrequency = 300
+#        Default:     864
+#        Recommended range: 1% of MinTimePlayed or 300 seconds, whichever is higher.
+ResetBotLevel.PlayedTimeCheckFrequency = 864
 
 #    ResetBotLevel.DebugMode
 #        Description: Enables debug logging for the Reset Bot Level module.
