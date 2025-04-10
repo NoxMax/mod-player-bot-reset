@@ -210,6 +210,15 @@ public:
         }
     }
 
+    void OnPlayerLogout(Player* player) override
+    {
+        if (!player)
+            return;
+            
+        // Remove from tracking when a player logs out
+        g_BotLoginTimers.erase(player->GetGUID());
+    }
+
     void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
     {
         if (!player)
@@ -470,7 +479,7 @@ private:
         // Now check the bots that have reached the delay time
         for (ObjectGuid guid : botsToCheck)
         {
-            Player* player = sObjectAccessor->FindPlayer(guid);
+            Player* player = ObjectAccessor::FindPlayer(guid);
             if (!player || !player->IsInWorld())
                 continue;
                 
