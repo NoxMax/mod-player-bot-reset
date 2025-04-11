@@ -29,6 +29,11 @@ ResetBotLevel.SkipFromLevel = 0
 #        Valid range: 1-80 and <= MaxLevel
 ResetBotLevel.SkipToLevel = 1
 
+#    ResetBotLevel.ProcessBotsPerTick
+#        Description: Number of bots to process per update tick from the level check queue.
+#        Default:     10
+ResetBotLevel.ProcessBotsPerTick = 10
+
 #    ResetBotLevel.ResetChance
 #        Description: The percent chance a bot has to have their level reset back to 1 when reaching the max specified level or time played.
 #        Default:     100 
@@ -61,8 +66,9 @@ ResetBotLevel.MinTimePlayed = 86400
 #    ResetBotLevel.PlayedTimeCheckFrequency
 #        Description: If enabled (ResetBotLevel.RestrictTimePlayed) The frequency (in seconds) at which the time played check is
 #                     performed for bots at or above the maximum level.
-#        Default:     300
-ResetBotLevel.PlayedTimeCheckFrequency = 300
+#        Default:     864
+#        Recommended range: 1% of MinTimePlayed or 300 seconds, whichever is higher.
+ResetBotLevel.PlayedTimeCheckFrequency = 864
 
 #    ResetBotLevel.DebugMode
 #        Description: Enables debug logging for the Reset Bot Level module.
