@@ -409,21 +409,24 @@ private:
             // Check for MaxLevel condition
             if (g_ResetBotMaxLevel > 0 && currentLevel >= g_ResetBotMaxLevel)
             {
-                if (g_DebugMode)
+                // Only proceed if time restriction is disabled or the bot has played enough time
+                if (!g_RestrictResetByPlayedTime || candidate->GetLevelPlayedTime() >= g_MinTimePlayed)
                 {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Bot '{}' at level {} is at or above MaxLevel {}.",
-                             candidate->GetName(), currentLevel, g_ResetBotMaxLevel);
-                }
-                
-                uint8 resetChance = ComputeResetChance(currentLevel);
-                if (urand(0, 99) < resetChance)
-                {
-                    if (g_DebugMode)
+                    uint8 resetChance = ComputeResetChance(currentLevel);
+                    if (urand(0, 99) < resetChance)
                     {
-                        LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Reset chance check passed for bot '{}'. Resetting bot.", 
-                                 candidate->GetName());
+                        if (g_DebugMode)
+                        {
+                            LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Reset chance check passed for bot '{}'. Resetting bot.", 
+                                    candidate->GetName());
+                        }
+                        ResetBot(candidate, currentLevel);
                     }
-                    ResetBot(candidate, currentLevel);
+                }
+                else if (g_DebugMode)
+                {
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Bot '{}' at level {} has insufficient played time ({} < {} seconds).",
+                            candidate->GetName(), currentLevel, candidate->GetLevelPlayedTime(), g_MinTimePlayed);
                 }
             }
         }
