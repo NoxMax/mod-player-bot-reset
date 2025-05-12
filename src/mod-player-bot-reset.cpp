@@ -28,8 +28,8 @@ static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
 static const uint32 PERIODIC_CHECK_INTERVAL = 15 * 60 * 1000; // in milliseconds (15 minutes)
 
-// When true, bots at or above g_ResetBotMaxLevel are reset only after they have
-// accumulated at least g_MinTimePlayed seconds at that level.
+// When true, bots at g_ResetBotMaxLevel are reset only after they have accumulated at least
+// g_MinTimePlayed seconds at that level. Bots above g_ResetBotMaxLevel are reset right away.
 static bool  g_RestrictResetByPlayedTime  = false;
 static uint32 g_MinTimePlayed             = 86400;  // in seconds (1 Day)
 static uint32 g_PlayedTimeCheckFrequency  = 864;    // in seconds (default check frequency)
@@ -181,7 +181,7 @@ static void SkipBotLevel(Player* player, uint8 currentLevel)
 }
 
 // -----------------------------------------------------------------------------
-// PLAYER SCRIPT: OnLogin and OnLevelChanged (Original Logic Preserved)
+// PLAYER SCRIPT: OnLogin and OnLevelChanged
 // -----------------------------------------------------------------------------
 class ResetBotLevelPlayerScript : public PlayerScript
 {
@@ -239,9 +239,19 @@ public:
         if (g_ResetBotMaxLevel == 0)
             return;
     
-        // If time-played restriction is enabled and the bot is at (or above) the max level,
-        // defer the reset to the periodic OnUpdate handler.
-        if (g_RestrictResetByPlayedTime && newLevel >= g_ResetBotMaxLevel)
+        // If the bot is strictly above MaxLevel, reset immediately regardless of time played
+        if (g_ResetBotMaxLevel > 0 && newLevel > g_ResetBotMaxLevel)
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' exceeded max level {}. Resetting immediately.", 
+                        player->GetName(), g_ResetBotMaxLevel);
+            
+            ResetBot(player, newLevel);
+            return;
+        }
+        
+        // If bot is exactly at MaxLevel, apply the regular time-played restriction
+        if (g_RestrictResetByPlayedTime && newLevel == g_ResetBotMaxLevel)
         {
             if (g_DebugMode)
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' at level {} deferred to OnUpdate due to time-played restriction.", player->GetName(), newLevel);
@@ -288,8 +298,6 @@ public:
 // For each bot at or above g_ResetBotMaxLevel that has accumulated at least g_MinTimePlayed
 // seconds at the current level, it applies the same reset chance logic and resets the bot if the check passes.
 // -----------------------------------------------------------------------------
-
-
 class ResetBotLevelTimeCheckWorldScript : public WorldScript
 {
     public:
