@@ -192,7 +192,47 @@ public:
     {
         if (!player)
             return;
-        ChatHandler(player->GetSession()).SendSysMessage("The [mod-player-bot-reset] module is active on this server.");
+        
+        uint8 currentLevel = player->GetLevel();
+        
+        // Check for MaxLevel condition
+        if (g_ResetBotMaxLevel > 0)
+        {
+            // Handle the case where bot is above MaxLevel - immediate reset
+            if (currentLevel > g_ResetBotMaxLevel)
+            {
+                if (g_DebugMode)
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' above max level {}. Resetting immediately.", 
+                            player->GetName(), g_ResetBotMaxLevel);
+                ResetBot(player, currentLevel);
+                return;
+            }
+            
+            // Handle bot at exactly MaxLevel - apply time-played restriction
+            if (currentLevel == g_ResetBotMaxLevel)
+            {
+                if (!g_RestrictResetByPlayedTime || player->GetLevelPlayedTime() >= g_MinTimePlayed)
+                {
+                    uint8 resetChance = ComputeResetChance(currentLevel);
+                    if (urand(0, 99) < resetChance)
+                    {
+                        if (g_DebugMode)
+                            LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' meets reset criteria. Resetting.", 
+                                    player->GetName());
+                        ResetBot(player, currentLevel);
+                    }
+                }
+            }
+        }
+        
+        // Check for SkipFromLevel condition
+        if (g_SkipFromLevel > 0 && currentLevel == g_SkipFromLevel)
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' at skip level {}. Applying skip.", 
+                        player->GetName(), currentLevel);
+            SkipBotLevel(player, currentLevel);
+        }
     }
 
     void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
