@@ -6,7 +6,7 @@
 #
 #    ResetBotLevel.MaxLevel
 #        Description: The maximum level a bot can reach before being reset.
-#        Default:     80 
+#        Default:     80
 #        Valid range: 2-80 (or 0 to disable)
 ResetBotLevel.MaxLevel = 80
 
@@ -31,7 +31,7 @@ ResetBotLevel.SkipToLevel = 1
 
 #    ResetBotLevel.ResetChance
 #        Description: The percent chance a bot has to have their level reset back to 1 when reaching the max specified level or time played.
-#        Default:     100 
+#        Default:     100
 #        Valid range: 0-100
 ResetBotLevel.ResetChance = 100
 

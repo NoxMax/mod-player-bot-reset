@@ -44,21 +44,21 @@ static void LoadPlayerBotResetConfig()
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.MaxLevel value: {}. Using default value 80.", g_ResetBotMaxLevel);
         g_ResetBotMaxLevel = 80;
     }
-    
+
     g_ResetToLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.ResetToLevel", 1));
     if (g_ResetToLevel < 1 || (g_ResetBotMaxLevel > 0 && g_ResetToLevel >= g_ResetBotMaxLevel))
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.ResetToLevel value: {}. Using default value 1.", g_ResetToLevel);
         g_ResetToLevel = 1;
     }
-    
+
     g_SkipFromLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.SkipFromLevel", 0));
     if (g_SkipFromLevel > 80 || (g_ResetBotMaxLevel > 0 && g_SkipFromLevel >= g_ResetBotMaxLevel))
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.SkipFromLevel value: {}. Using default value 0 (disabled).", g_SkipFromLevel);
         g_SkipFromLevel = 0;
     }
-    
+
     g_SkipToLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.SkipToLevel", 1));
     if (g_SkipToLevel < 1 || g_SkipToLevel > 80 || (g_ResetBotMaxLevel > 0 && g_SkipToLevel > g_ResetBotMaxLevel))
     {
@@ -133,13 +133,13 @@ static uint8 ComputeResetChance(uint8 level)
 static void ResetBot(Player* player, uint8 currentLevel)
 {
     uint8 levelToResetTo = g_ResetToLevel;
-    
+
     // If the configured reset level is below 55 and this is a Death Knight, use 55 instead
     if (player->getClass() == CLASS_DEATH_KNIGHT && g_ResetToLevel < 55)
         levelToResetTo = 55;
-    
+
     PlayerbotFactory newFactory(player, levelToResetTo);
-    
+
     newFactory.Randomize(false);
 
     if (g_DebugMode)
@@ -160,11 +160,11 @@ static void ResetBot(Player* player, uint8 currentLevel)
 static void SkipBotLevel(Player* player, uint8 currentLevel)
 {
     uint8 levelToSkipTo = g_SkipToLevel;
-    
+
     // If the configured skip level is below 55 and this is a Death Knight, use 55 instead
     if (player->getClass() == CLASS_DEATH_KNIGHT && g_SkipToLevel < 55)
         levelToSkipTo = 55;
-    
+
     PlayerbotFactory newFactory(player, levelToSkipTo);
     newFactory.Randomize(false);
 
@@ -194,23 +194,23 @@ public:
             LOG_ERROR("server.loading", "[mod-player-bot-reset] OnPlayerLogin called with nullptr player.");
             return;
         }
-            
+
         if (!IsPlayerBot(player))
         {
             if (g_DebugMode)
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Player '{}' is a real player. Skipping reset check.", player->GetName());
             return;
         }
-    
+
         if (!IsPlayerRandomBot(player))
         {
             if (g_DebugMode)
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Player '{}' is not a random bot. Skipping reset check.", player->GetName());
             return;
         }
-        
+
         uint8 currentLevel = player->GetLevel();
-        
+
         // Check for MaxLevel condition
         if (g_ResetBotMaxLevel > 0)
         {
@@ -218,12 +218,12 @@ public:
             if (currentLevel > g_ResetBotMaxLevel)
             {
                 if (g_DebugMode)
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' above max level {}. Resetting immediately.", 
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' above max level {}. Resetting immediately.",
                             player->GetName(), g_ResetBotMaxLevel);
                 ResetBot(player, currentLevel);
                 return;
             }
-            
+
             // Handle bot at exactly MaxLevel - apply time-played restriction
             if (currentLevel == g_ResetBotMaxLevel)
             {
@@ -233,19 +233,19 @@ public:
                     if (urand(0, 99) < resetChance)
                     {
                         if (g_DebugMode)
-                            LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' meets reset criteria. Resetting.", 
+                            LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' meets reset criteria. Resetting.",
                                     player->GetName());
                         ResetBot(player, currentLevel);
                     }
                 }
             }
         }
-        
+
         // Check for SkipFromLevel condition
         if (g_SkipFromLevel > 0 && currentLevel == g_SkipFromLevel)
         {
             if (g_DebugMode)
-                LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' at skip level {}. Applying skip.", 
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Bot '{}' at skip level {}. Applying skip.",
                         player->GetName(), currentLevel);
             SkipBotLevel(player, currentLevel);
         }
@@ -265,47 +265,47 @@ public:
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Player '{}' is a real player. Skipping reset check.", player->GetName());
             return;
         }
-    
+
         if (!IsPlayerRandomBot(player))
         {
             if (g_DebugMode)
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Player '{}' is not a random bot. Skipping reset check.", player->GetName());
             return;
         }
-    
+
         uint8 newLevel = player->GetLevel();
         if (newLevel == 1)
             return;
-    
+
         // Special case for Death Knights.
         if (newLevel == 55 && player->getClass() == CLASS_DEATH_KNIGHT)
             return;
-        
+
         // Check for the SkipFromLevel condition - this takes priority and is not affected by other settings
         if (g_SkipFromLevel > 0 && newLevel == g_SkipFromLevel)
         {
             if (g_DebugMode)
-                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' reached skip level {}. Skipping to level {}.", 
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' reached skip level {}. Skipping to level {}.",
                          player->GetName(), newLevel, g_SkipToLevel);
             SkipBotLevel(player, newLevel);
             return;
         }
-    
+
         // If MaxLevel is disabled (0), skip the reset logic
         if (g_ResetBotMaxLevel == 0)
             return;
-    
+
         // If the bot is strictly above MaxLevel, reset immediately regardless of time played
         if (g_ResetBotMaxLevel > 0 && newLevel > g_ResetBotMaxLevel)
         {
             if (g_DebugMode)
-                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' exceeded max level {}. Resetting immediately.", 
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' exceeded max level {}. Resetting immediately.",
                         player->GetName(), g_ResetBotMaxLevel);
-            
+
             ResetBot(player, newLevel);
             return;
         }
-        
+
         // If bot is exactly at MaxLevel, apply the regular time-played restriction
         if (g_RestrictResetByPlayedTime && newLevel == g_ResetBotMaxLevel)
         {
@@ -313,7 +313,7 @@ public:
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' at level {} deferred to OnUpdate due to time-played restriction.", player->GetName(), newLevel);
             return;
         }
-    
+
         uint8 resetChance = ComputeResetChance(newLevel);
         if (g_ScaledChance || newLevel >= g_ResetBotMaxLevel)
         {
