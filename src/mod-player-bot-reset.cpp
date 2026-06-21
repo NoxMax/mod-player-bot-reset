@@ -190,7 +190,24 @@ public:
     void OnPlayerLogin(Player* player) override
     {
         if (!player)
+        {
+            LOG_ERROR("server.loading", "[mod-player-bot-reset] OnPlayerLogin called with nullptr player.");
             return;
+        }
+            
+        if (!IsPlayerBot(player))
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Player '{}' is a real player. Skipping reset check.", player->GetName());
+            return;
+        }
+    
+        if (!IsPlayerRandomBot(player))
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnPlayerLogin: Player '{}' is not a random bot. Skipping reset check.", player->GetName());
+            return;
+        }
         
         uint8 currentLevel = player->GetLevel();
         
@@ -241,19 +258,11 @@ public:
             LOG_ERROR("server.loading", "[mod-player-bot-reset] OnLevelChanged called with nullptr player.");
             return;
         }
-    
-        uint8 newLevel = player->GetLevel();
-        if (newLevel == 1)
-            return;
-    
-        // Special case for Death Knights.
-        if (newLevel == 55 && player->getClass() == CLASS_DEATH_KNIGHT)
-            return;
-    
+
         if (!IsPlayerBot(player))
         {
             if (g_DebugMode)
-                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Player '{}' is not a bot. Skipping reset check.", player->GetName());
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Player '{}' is a real player. Skipping reset check.", player->GetName());
             return;
         }
     
@@ -263,6 +272,14 @@ public:
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Player '{}' is not a random bot. Skipping reset check.", player->GetName());
             return;
         }
+    
+        uint8 newLevel = player->GetLevel();
+        if (newLevel == 1)
+            return;
+    
+        // Special case for Death Knights.
+        if (newLevel == 55 && player->getClass() == CLASS_DEATH_KNIGHT)
+            return;
         
         // Check for the SkipFromLevel condition - this takes priority and is not affected by other settings
         if (g_SkipFromLevel > 0 && newLevel == g_SkipFromLevel)
@@ -271,7 +288,7 @@ public:
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' reached skip level {}. Skipping to level {}.", 
                          player->GetName(), newLevel, g_SkipToLevel);
             SkipBotLevel(player, newLevel);
-            return; // Skip further processing once we've done the level skip
+            return;
         }
     
         // If MaxLevel is disabled (0), skip the reset logic
